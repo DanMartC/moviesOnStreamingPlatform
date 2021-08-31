@@ -1,0 +1,354 @@
+---
+title: "ANÁLISIS DE PLATAFORMAS"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, comment = NA)
+library(dplyr)
+library(tibble)
+library(tidyverse)
+#Graficos
+library(ggplot2)
+library(hrbrthemes)
+library(plotrix)
+#Tablas
+library(kableExtra)
+library(rmarkdown)
+library(formattable)
+library(xtable)
+```
+
+<style>
+
+h1 {
+  color: #D35400;
+}
+
+h2 {
+  color: #69b3a2;
+}
+
+</style>
+
+<!-- Full Data -->
+```{r}
+arch = 'C:/Users/familiar/Documents/hi/MoviesOnStreamingPlatforms_updated.csv'
+data <- read.csv(file = arch, header = T, encoding="utf-8")
+```
+
+<!-- Variable Type{ 0 : Pelicula; 1: Serie } -->
+
+```{r}
+data %>% 
+  group_by(Type) %>% 
+  summarise(Total = n()) -> var
+```
+
+<!-- Realizamos algunas modificaciones en la parte de calificaciones -->
+
+```{r}
+for (i in 1:9515) {
+  data$IMDb[i] <- substr(x = data$IMDb[i], start = 1, stop = 3)
+  data$Rotten.Tomatoes[i] <- sub("(.{1})(.*)", "\\1.\\2", 
+                                 substr(x = data$Rotten.Tomatoes[i], 
+                                    start = 1, stop = 2))
+}
+data$IMDb <- as.numeric(data$IMDb)
+data$Rotten.Tomatoes <- as.numeric(data$Rotten.Tomatoes)
+data <- add_column(data, 
+                   Score = rowMeans(data[,c("IMDb", "Rotten.Tomatoes")], na.rm=TRUE), 
+                   .after = "Rotten.Tomatoes")
+```
+
+```{r}
+# Como podemos observar, algunas variables ya no son importantes, por lo que las eliminaremos.
+dataN <- subset(x = data, select = -c(X, IMDb, Rotten.Tomatoes, Type))
+rm(data, var)
+```
+
+<!-- Netflix -->
+
+```{r}
+dataN %>% filter((Netflix == 1) & 
+                  (Prime.Video == 0) & 
+                  (Disney. == 0) & 
+                  (Hulu == 0)) %>% 
+  subset(select = -c(Netflix, Prime.Video, Disney., Hulu)) -> netflix
+```
+
+
+```{r}
+View(table(netflix$Directors))
+```
+
+
+<!-- prime video -->
+
+```{r}
+dataN %>% filter((Netflix == 0) & 
+                  (Prime.Video == 1) & 
+                  (Disney. == 0) & 
+                  (Hulu == 0)) %>% 
+  subset(select = -c(Netflix, Prime.Video, Disney., Hulu)) -> prime_video
+```
+
+<!-- Disney -->
+
+```{r}
+dataN %>% filter((Netflix == 0) & 
+                  (Prime.Video == 0) & 
+                  (Disney. == 1) & 
+                  (Hulu == 0)) %>% 
+  subset(select = -c(Netflix, Prime.Video, Disney., Hulu)) -> disney
+```
+
+<!-- Hulu -->
+
+```{r}
+dataN %>% filter((Netflix == 0) & 
+                  (Prime.Video == 0) & 
+                  (Disney. == 0) & 
+                  (Hulu == 1)) %>% 
+  subset(select = -c(Netflix, Prime.Video, Disney., Hulu)) -> hulu
+```
+
+
+# Datos relevantes
+
+Tenemos un conjunto de datos relacionado a peliculas, por lo que se mostrará una pequeña parte del Dataset, en esta primera parte mostraré como está distribuido nuesro conjunto de datos
+
+```{r}
+company <- c("Netflix", "Prime Video", "Disney", "Hulu", "others")
+values <- c(length(netflix$ID), length(prime_video$ID), length(disney$ID), length(hulu$ID), 
+            length(dataN$ID)-sum(length(netflix$ID), length(prime_video$ID), length(disney$ID),
+                               length(hulu$ID)))
+
+data.frame("Plataforma" = company, "Total" = values) %>% 
+  arrange(Total) -> companies
+#rm(companies)
+```
+
+```{r}
+showData <- dplyr::select(dataN, ID, Title, Year, Score, Directors, Genres,
+                          Country, Language, Runtime)
+
+kbl(showData[1:8,]) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
+## Peliculas 
+
+<p> Nos interesa observar quien tiene más contenido, solo contabilizamos las peliculas que se encuentran en una sola plataforma.</p>
+
+<div class = "row">
+
+<div class = "col-md-6">
+<br> <br>
+```{r}
+companies$Total <- color_bar("#69b3a2")(companies$Total)
+kbl(companies, escape = F) %>%
+  kable_paper("hover", full_width = F) %>%
+  column_spec(2, width = "3cm")
+```
+</div>
+
+<div class = "col-md-6">
+```{r}
+pie3D(x = values, radius = 0.8,labels = company, explode = 0.1,
+  col = c("#AEB6BF", "#F1C40F", "#45B39D", "#AF7AC5", "#CD6155"),labelpos = c(1.5, 4, 5.3, 5.75, 6.2))
+```
+</div>
+
+</div>
+
+y como lo podemos observar, Prime video es el que más contenido tiene, seguido de Netflix y por último con un gran margen de diferencia se encuentran Disney y Hulu
+
+## Calificaciones
+
+Nos interesa obtener que calificaciones han obtenido las 4 plataformas, tales como: la calificación mínima, la máxima, y  el promedio de sus calificaciones otorgadas por IMDb y Rotten Tomatoes.
+
+
+
+```{r}
+# Creamos una función que nos retornará los valores del mínimo, máximo y el promedio de las calificaciones
+est <- function(y){
+  return(round(c(min(y$Score, na.rm=TRUE), max(y$Score, na.rm=TRUE), mean(y$Score, na.rm=TRUE)),1))
+}
+# Cramos un data frame para darle mejor presentación
+calf <- data.frame("Netflix" = est(y = netflix),
+                   "Prime Video" = est(y = prime_video),
+                   "Disney" = est(y = disney),
+                   "Hulu" = est(y = hulu))
+data.frame(t(calf)) -> calf
+colnames(calf) <- c("Calif Min", "Calif Max", "Calif Pomedio")
+row.names(calf) <- c("Netflix", "Prime Video", "Disney", "Hulu")
+#rm(calf)
+```
+
+<div class = "row">
+
+<div class = "col-md-5">
+<br>
+Como observamos en nuestra sección anterior, Prime Video es el que más contenido tiene, pero el que peor calificaciones obtiene. Por otro lado Disney y Hulu son las que obtienen mejor puntuación, apesar de ser las plataformas con menor cantidad de contenido. 
+</div>
+
+<div class = "col-md-5">
+```{r}
+# Realizamos nuestra tabla
+calf$`Calif Pomedio` <- color_tile("#CD6155", "#F2D7D5")(calf$`Calif Pomedio`)
+kbl(calf, escape = F) %>%
+  kable_paper("hover", full_width = F) %>%
+  column_spec(4, width = "3cm")
+```
+</div>
+
+</div>
+
+
+
+# Netflix
+
+## Calificación de peliculas por edades
+
+Nos interesa obtener el total de peliculas por rangos de edades, y obtener el rango de edad con mejor calificación para poder promover mejor contenido al usuario 
+
+
+<div class = "row">
+
+<div class = "col-md-6">
+<br> <br>
+```{r}
+netflix %>% 
+  group_by(Age) %>% 
+  summarise(Total = n(), Puntuacion = round(mean(Score, na.rm=TRUE),1)) %>% 
+  subset(Age != "") %>% 
+  arrange(Total) -> ageNetflix
+
+ageNetflix$Total <- color_bar("#69b3a2")(ageNetflix$Total)
+ageNetflix$Puntuacion <- color_tile("#CD6155", "#F2D7D5")(ageNetflix$Puntuacion)
+
+kbl(ageNetflix, escape = F) %>%
+  kable_paper("hover", full_width = F) %>%
+  column_spec(2, width = "4cm")
+#rm(edadesNetflix)
+```
+</div>
+
+<div class = "col-md-6">
+```{r}
+netflix %>% 
+  group_by(Age) %>% 
+  summarise(Total = n(), Puntuacion = round(mean(Score, na.rm=TRUE),1)) %>% 
+  subset(Age != "") %>% 
+  arrange(Total) -> ageNetflix2
+
+ageNetflix2$fraccion <- ageNetflix2$Total / sum(ageNetflix2$Total)
+ageNetflix2$ymax <- cumsum(ageNetflix2$fraccion)
+ageNetflix2$ymin <- c(0, head(ageNetflix2$ymax, n=-1))
+ageNetflix2$labelPosition <- (ageNetflix2$ymax + ageNetflix2$ymin) / 2
+ageNetflix2$label <- paste0(ageNetflix2$Age, "\n Total: ", ageNetflix2$Total)
+
+# Make the plot
+ggplot(ageNetflix2, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=Age)) +
+  geom_rect() +
+  geom_label( x=3.5, aes(y=labelPosition, label=label), size=3) +
+  scale_fill_brewer(palette=7) +
+  coord_polar(theta="y") +
+  xlim(c(2, 4)) +
+  theme_void() +
+  theme(legend.position = "none")
+```
+</div>
+
+</div>
+
+En el contenido de Netflix, predominan las peliculas para usuarios mayores a 18 años, una gran ventaja dado que la mayor cantidad de usuarios son personas mayores a 18
+
+
+## Calificación de peliculas por años
+
+Obtendremos el total de peliculas por Año, pero solo nos quedaremos con los últimos 10 años y con ello conocer en que año se obtuvo una mejor calidad de contenido en la plataforma.
+
+
+<div class = "row">
+
+<div class = "col-md-6">
+<br>
+```{r}
+netflix %>% 
+  group_by(Year) %>% 
+  summarise(Total = n(), Puntuacion = round(mean(Score, na.rm=TRUE),1)) %>% 
+  subset(Year != "" & Year >= 2010) %>% 
+  arrange(Total) -> yearNetflix2
+
+yearNetflix2 %>%
+  filter(!is.na(Total)) %>%
+  arrange(Total) %>%
+  mutate(Year=factor(Year, Year)) %>%
+  ggplot( aes(x=Year, y=Total) ) +
+    geom_segment( aes(x=Year ,xend=Year, y=0, yend=Total), color="grey") +
+    geom_point(size=3, color="#69b3a2") +
+    coord_flip() +
+    theme_ipsum() +
+    theme(
+      panel.grid.minor.y = element_blank(),
+      panel.grid.major.y = element_blank(),
+      legend.position="none"
+    ) +
+    xlab("")
+```
+</div>
+
+<div class = "col-md-6">
+```{r}
+# Solo nos quedaremos con los últimos 10 años
+netflix %>% 
+  group_by(Year) %>% 
+  summarise(Total = n(), Puntuacion = round(mean(Score, na.rm=TRUE),1)) %>% 
+  subset(Year != "" & Year >= 2010) %>% 
+  arrange(Total) -> yearNetflix
+
+yearNetflix$Total <- color_bar("#69b3a2")(yearNetflix$Total)
+yearNetflix$Puntuacion <- color_tile("#CD6155", "#F2D7D5")(yearNetflix$Puntuacion)
+
+kbl(yearNetflix, escape = F) %>%
+  kable_paper("hover", full_width = F) %>%
+  column_spec(2, width = "4cm")
+#rm(yearNetflix)
+```
+</div>
+
+</div>
+
+Con estos resultados podemos hacer recomendaciones y brindar información para una mejor satisfacción al usuario
+
+## Peliculas mejor calificadas
+
+Mostraremos las 5 peliculas mejor calificadas, para que de esta manera promover esta plataforma y así obtener mayor cantidad de usuarios
+<br> <br>
+```{r}
+netflix %>% 
+  filter(Score > 8.7) %>% 
+  dplyr::select(Title, Language, Genres, Directors, Age) %>% 
+  kbl() %>% 
+  kable_paper("striped", full_width = F) %>%
+  row_spec(c(1,3,5), bold = F, color = "black", background = "#F2D7D5")
+
+```
+
+# Bibliografía
+
+<div >
+[1] Diseño de gráficas [Graph Gallery](https://www.r-graph-gallery.com/) 
+</div>
+
+<div >
+[2] Diseño de Tablas [Hao Zhu](https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html) 
+</div>
+
