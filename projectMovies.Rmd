@@ -52,20 +52,20 @@ datos %>% select(-X1) -> datos
 ```
 
 <!--
-  ID := Identificador único de la película.
+  ID    := Identificador único de la película.
   Title := Título de la película
-  Year := Año en el que se produjo la película
-  Age := Grupo de edad objetivo
+  Year  := Año en el que se produjo la película
+  Age   := Grupo de edad objetivo
   
   {Estas columnas no se modificarán  por el momento}
 -->
 
 
 <!-- 
-    IMDb := Calificación en IMDb
-    Rotten Tomatoes := Calificación Rotten Tomatoes
+    IMDb            := Calificación en IMDb
+    Rotten Tomatoes := Calificación en Rotten Tomatoes
     
-    Nos interesa obtener una sola calificación por lo que sacaremos un calificación promedio de ambas
+    Nos interesa obtener una sola calificación por lo que sacaremos una calificación promedio de ambas
 -->
 
 
@@ -89,112 +89,221 @@ datos$`Rotten Tomatoes` <- as.numeric(datos$`Rotten Tomatoes`)
 
 # Agregamos una nueva columna 
 datos <- add_column(datos, 
-                   Calificacion = rowMeans(datos[,c("IMDb", "Rotten Tomatoes")], na.rm=TRUE), 
+                   Score = rowMeans(datos[,c("IMDb", "Rotten Tomatoes")], na.rm=TRUE), 
                    .after = "Rotten Tomatoes")
 
 # Las columnas IMDb y Rotten Tomatoes ya son inecesarias, por lo que las eliminaremos
 datos %>% select(-IMDb, -`Rotten Tomatoes`) -> datos
 ```
 
+<!--
+    Netflix     := Indica si la película se encuentra en Netflix (1) o no (0)
+    Hulu        := Indica si la película se encuentra en Hulu (1) o no (0)
+    Prime Video := Indica si la película se encuentra en Prime Video (1) o no (0)
+    Disney+     := Indica si la película se encuentra en Disney+ (1) o no (0)
+    
+    Estas columnas las modificaremos, cambiaremos el 1 por 'Si' y 0 por 'No'
+-->
 
+```{r}
+modif_cols <- function(x){ifelse(test = x == 0, yes = 'No', no = 'Si')}
+datos %>% mutate_at(.vars = vars(Netflix, Hulu, `Prime Video`, `Disney+`), .funs = modif_cols) -> datos
+```
+
+
+<!--
+    Type := Indica si es una película (0) o una serie de televisión (1)
+    
+    Con las siguientes lineas de código podemos observas que solo existen peliculas.
+    Eliminaremos ésta columna, porque  sólo tendremos un valor que es "0"
+    
+```{r}
+datos %>% 
+  group_by(Type) %>% 
+  summarise(Total = n()) 
+```
+-->
+
+```{r}
+datos %>% select(-Type) -> datos
+```
+
+<!--
+Directors := El nombre del director de la película
+Genres    := El género de la película
+Country   := El país donde se produjo la película
+Language  := El lenguaje de la película
+-->
+
+```{r}
+# Creamos una data frame con la cual mostraremos información sobre el total de directores, generos e idiomas
+tot <- function(x){return(length(unique(unlist(strsplit(as.character(x), ",")))))}
+val_unicos <- as.data.frame(t(data.frame("Directores" = tot(x = datos$Directors),
+                                         "Generos" = tot(x = datos$Genres),
+                                         "Idiomas" = tot(x = datos$Language))))
+colnames(val_unicos) <- 'Total'
+```
+
+```{r}
+# Obtendremos los directores con más peliculas
+strsplit(as.character(datos$Directors), ",") %>% 
+  unlist() %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  filter(Freq > 15) %>% 
+  arrange(Freq) -> directores
+
+# Obtendremos los generos con más peliculas
+strsplit(as.character(datos$Genres), ",") %>% 
+  unlist() %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  filter(Freq > 840) %>% 
+  arrange(Freq) -> generos
+
+colnames(directores) <- c('Director', '# Peliculas')
+colnames(generos) <- c('Genero', '# Peliculas')
+```
+
+
+<!--
+    Empezaremos a mostrar algunos resultados
+-->
+
+# Datos 
+
+Tenemos un conjunto de datos relacionado a películas, por lo que se mostrará una pequeña parte del Dataset, al siguiente conjunto de datos se le hicieron algunas modificaciones agregando nuevas columnas, eliminando las no necesarias y modificando algunos valores. 
+
+```{r}
+datos[1:100,] %>%
+  mutate_all(~replace(., is.na(.), '-')) %>% 
+  kbl() %>% 
+  kable_paper("striped", full_width = F) %>%
+  row_spec(c(seq(1,100, by=2)), bold = F, color = "black", background = "#F2D7D5") %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+## Géneros y Directores
+<div class = "row">
+  
+<div class = "col-md-4">
+<br><br>
+<p>En nuestro conjunto de datos relacionado a películas podemos encontrar alrededor de `r val_unicos[1,1]` Directores diferentes, aproximadamente  `r val_unicos[2,1]` géneros distintos y un aproximado de `r val_unicos[3,1]` idiomas diferentes. En las siguientes tablas mostraremos el director y el género con mayor número de películas.</p>
+<p>Tomando en cuenta que cada película puede tener más de un director y más de un género
+</div>
+  
+<div class = "col-md-4">
+```{r}
+directores$`# Peliculas` <- color_bar("#69b3a2")(directores$`# Peliculas`)  
+kbl(directores, escape = F) %>%
+  kable_paper("hover", full_width = F) %>%
+  column_spec(2, width = "3cm")
+```
+
+</div>
+  
+<div class = "col-md-4">
+```{r}
+generos$`# Peliculas` <- color_bar("#69b3a2")(generos$`# Peliculas`)  
+kbl(generos, escape = F) %>%
+  kable_paper("hover", full_width = F) %>%
+  column_spec(2, width = "3cm")
+```
+</div>
+
+</div>
+
+<!--
+    Nos interesa obterner el número de contenido (único) que se encuentra en cada plataforma
+-->
 
 <!-- Netflix -->
 
 ```{r}
-dataN %>% filter((Netflix == 1) & 
-                  (Prime.Video == 0) & 
-                  (Disney. == 0) & 
-                  (Hulu == 0)) %>% 
-  subset(select = -c(Netflix, Prime.Video, Disney., Hulu)) -> netflix
+datos %>% filter((Netflix == 'Si') & 
+                  (`Prime Video` == 'No') & 
+                  (`Disney+` == 'No') & 
+                  (Hulu == 'No')) %>% 
+  subset(select = -c(Netflix, `Prime Video`, `Disney+`, Hulu)) -> netflix
 ```
 
 
 <!-- prime video -->
 
 ```{r}
-dataN %>% filter((Netflix == 0) & 
-                  (Prime.Video == 1) & 
-                  (Disney. == 0) & 
-                  (Hulu == 0)) %>% 
-  subset(select = -c(Netflix, Prime.Video, Disney., Hulu)) -> prime_video
+datos %>% filter((Netflix == 'No') & 
+                  (`Prime Video` == 'Si') & 
+                  (`Disney+` == 'No') & 
+                  (Hulu == 'No')) %>% 
+  subset(select = -c(Netflix, `Prime Video`, `Disney+`, Hulu)) -> p_video
 ```
 
 <!-- Disney -->
 
 ```{r}
-dataN %>% filter((Netflix == 0) & 
-                  (Prime.Video == 0) & 
-                  (Disney. == 1) & 
-                  (Hulu == 0)) %>% 
-  subset(select = -c(Netflix, Prime.Video, Disney., Hulu)) -> disney
+datos %>% filter((Netflix == 'No') & 
+                  (`Prime Video` == 'No') & 
+                  (`Disney+` == 'Si') & 
+                  (Hulu == 'No')) %>% 
+  subset(select = -c(Netflix, `Prime Video`, `Disney+`, Hulu)) -> disney
 ```
 
 <!-- Hulu -->
 
 ```{r}
-dataN %>% filter((Netflix == 0) & 
-                  (Prime.Video == 0) & 
-                  (Disney. == 0) & 
-                  (Hulu == 1)) %>% 
-  subset(select = -c(Netflix, Prime.Video, Disney., Hulu)) -> hulu
+datos %>% filter((Netflix == 'No') & 
+                  (`Prime Video` == 'No') & 
+                  (`Disney+` == 'No') & 
+                  (Hulu == 'Si')) %>% 
+  subset(select = -c(Netflix, `Prime Video`, `Disney+`, Hulu)) -> hulu
 ```
 
 
-# Datos relevantes
-
-Tenemos un conjunto de datos relacionado a peliculas, por lo que se mostrará una pequeña parte del Dataset, en esta primera parte mostraré como está distribuido nuesro conjunto de datos
 
 ```{r}
-company <- c("Netflix", "Prime Video", "Disney", "Hulu", "others")
-values <- c(length(netflix$ID), length(prime_video$ID), length(disney$ID), length(hulu$ID), 
-            length(dataN$ID)-sum(length(netflix$ID), length(prime_video$ID), length(disney$ID),
+company <- c("Netflix", "Prime Video", "Disney", "Hulu", "Otros")
+values <- c(length(netflix$ID), length(p_video$ID), length(disney$ID), length(hulu$ID), 
+            length(datos$ID)-sum(length(netflix$ID), length(p_video$ID), length(disney$ID),
                                length(hulu$ID)))
 
 data.frame("Plataforma" = company, "Total" = values) %>% 
-  arrange(Total) -> companies
-#rm(companies)
+  arrange(Total) -> plataformas
 ```
 
-```{r}
-showData <- dplyr::select(dataN, ID, Title, Year, Score, Directors, Genres,
-                          Country, Language, Runtime)
+## Plataformas
 
-kbl(showData[1:8,]) %>%
-  kable_paper() %>%
-  scroll_box(width = "100%", height = "500px")
-```
+<p> Nos interesa observar quién tiene más contenido, solo contabilizamos las películas que se encuentran en una sola plataforma.</p>
 
-## Peliculas 
-
-<p> Nos interesa observar quien tiene más contenido, solo contabilizamos las peliculas que se encuentran en una sola plataforma.</p>
 
 <div class = "row">
-
-<div class = "col-md-6">
-<br> <br>
+  
+<div class = "col-md-4">
 ```{r}
-companies$Total <- color_bar("#69b3a2")(companies$Total)
-kbl(companies, escape = F) %>%
+plataformas$Total <- color_bar("#69b3a2")(plataformas$Total)
+kbl(plataformas, escape = F) %>%
   kable_paper("hover", full_width = F) %>%
   column_spec(2, width = "3cm")
 ```
 </div>
-
-<div class = "col-md-6">
-```{r}
+  
+<div class = "col-md-4">
+```{r,  out.width='110%'}
 pie3D(x = values, radius = 0.8,labels = company, explode = 0.1,
   col = c("#AEB6BF", "#F1C40F", "#45B39D", "#AF7AC5", "#CD6155"),labelpos = c(1.5, 4, 5.3, 5.75, 6.2))
 ```
 </div>
 
+<div class = "col-md-4">
+<br><br>
+<p>Podemos observar, Prime video es el que más contenido tiene, seguido de Netflix y por último con un gran margen de diferencia se encuentrán Disney y Hulu</p>
+<p>Tomando en cuenta que "Otros" son películas que se encuentrán en dos, tres o hasta en las cuatro plataformas</p>
 </div>
 
-y como lo podemos observar, Prime video es el que más contenido tiene, seguido de Netflix y por último con un gran margen de diferencia se encuentran Disney y Hulu
+</div>
 
 ## Calificaciones
 
 Nos interesa obtener que calificaciones han obtenido las 4 plataformas, tales como: la calificación mínima, la máxima, y  el promedio de sus calificaciones otorgadas por IMDb y Rotten Tomatoes.
-
 
 
 ```{r}
@@ -204,7 +313,7 @@ est <- function(y){
 }
 # Cramos un data frame para darle mejor presentación
 calf <- data.frame("Netflix" = est(y = netflix),
-                   "Prime Video" = est(y = prime_video),
+                   "Prime Video" = est(y = p_video),
                    "Disney" = est(y = disney),
                    "Hulu" = est(y = hulu))
 data.frame(t(calf)) -> calf
@@ -232,11 +341,9 @@ kbl(calf, escape = F) %>%
 
 </div>
 
-
-
 # Netflix
 
-## Calificación de peliculas por edades
+## Calificación de películas por edades
 
 Nos interesa obtener el total de peliculas por rangos de edades, y obtener el rango de edad con mejor calificación para poder promover mejor contenido al usuario 
 
@@ -276,7 +383,6 @@ ageNetflix2$ymin <- c(0, head(ageNetflix2$ymax, n=-1))
 ageNetflix2$labelPosition <- (ageNetflix2$ymax + ageNetflix2$ymin) / 2
 ageNetflix2$label <- paste0(ageNetflix2$Age, "\n Total: ", ageNetflix2$Total)
 
-# Make the plot
 ggplot(ageNetflix2, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=Age)) +
   geom_rect() +
   geom_label( x=3.5, aes(y=labelPosition, label=label), size=3) +
@@ -290,12 +396,12 @@ ggplot(ageNetflix2, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=Age)) +
 
 </div>
 
-En el contenido de Netflix, predominan las peliculas para usuarios mayores a 18 años, una gran ventaja dado que la mayor cantidad de usuarios son personas mayores a 18
+En el contenido de Netflix, predominan las películas para usuarios mayores a 18 años.
 
 
-## Calificación de peliculas por años
+## Calificación de películas por años
 
-Obtendremos el total de peliculas por Año, pero solo nos quedaremos con los últimos 10 años y con ello conocer en que año se obtuvo una mejor calidad de contenido en la plataforma.
+Obtendremos el total de películas por Año, pero solo nos quedaremos con los últimos 10 años y con ello conocer en que año se obtuvo una mejor calidad de contenido en la plataforma.
 
 
 <div class = "row">
@@ -350,9 +456,9 @@ kbl(yearNetflix, escape = F) %>%
 
 Con estos resultados podemos hacer recomendaciones y brindar información para una mejor satisfacción al usuario
 
-## Peliculas mejor calificadas
+## Películas mejor calificadas
 
-Mostraremos las 5 peliculas mejor calificadas, para que de esta manera promover esta plataforma y así obtener mayor cantidad de usuarios
+Mostraremos las 5 películas mejor calificadas, para que de esta manera promover esta plataforma y así obtener mayor cantidad de usuarios
 <br> <br>
 ```{r}
 netflix %>% 
@@ -364,13 +470,7 @@ netflix %>%
 
 ```
 
-# Bibliografía
 
-<div >
-[1] Diseño de gráficas [Graph Gallery](https://www.r-graph-gallery.com/) 
-</div>
 
-<div >
-[2] Diseño de Tablas [Hao Zhu](https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html) 
-</div>
+
 
