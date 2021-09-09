@@ -2,6 +2,8 @@
 title: "ANÁLISIS DE PLATAFORMAS"
 output:
   html_document:
+    includes:
+      after_body: footer.html
     toc: true
     toc_float: true
     theme: united
@@ -12,6 +14,8 @@ knitr::opts_chunk$set(echo = F, message = F, warning = F, comment = NA)
 library(dplyr)
 library(tibble)
 library(tidyverse)
+#Lectura de archivos
+library(readr)
 #Graficos
 library(ggplot2)
 library(hrbrthemes)
@@ -23,53 +27,76 @@ library(formattable)
 library(xtable)
 ```
 
-<style>
 
-h1 {
-  color: #D35400;
-}
 
-h2 {
-  color: #69b3a2;
-}
-
-</style>
-
-<!-- Full Data -->
-```{r}
-arch = 'C:/Users/familiar/Documents/hi/MoviesOnStreamingPlatforms_updated.csv'
-data <- read.csv(file = arch, header = T, encoding="utf-8")
+```{css, echo = F}
+h1 { color: #D35400; }
+h2 { color: #69b3a2; }
 ```
 
-<!-- Variable Type{ 0 : Pelicula; 1: Serie } -->
-
+<!-- Lectura de Datos -->
 ```{r}
-data %>% 
-  group_by(Type) %>% 
-  summarise(Total = n()) -> var
+arch = 'MoviesOnStreamingPlatforms_updated.csv'
+datos <- read_csv(file = arch, col_names = T, locale = locale(encoding = "UTF-8"))
 ```
 
-<!-- Realizamos algunas modificaciones en la parte de calificaciones -->
+<!-- Empecemos revisando las columnas de izquierda a derecha. -->
+
+<!--
+  X := Indice del registro.
+  {Eliminaremos esta columna, dado que el registro no es por fecha, y solo es un número}
+-->
 
 ```{r}
-for (i in 1:9515) {
-  data$IMDb[i] <- substr(x = data$IMDb[i], start = 1, stop = 3)
-  data$Rotten.Tomatoes[i] <- sub("(.{1})(.*)", "\\1.\\2", 
-                                 substr(x = data$Rotten.Tomatoes[i], 
+datos %>% select(-X1) -> datos
+```
+
+<!--
+  ID := Identificador único de la película.
+  Title := Título de la película
+  Year := Año en el que se produjo la película
+  Age := Grupo de edad objetivo
+  
+  {Estas columnas no se modificarán  por el momento}
+-->
+
+
+<!-- 
+    IMDb := Calificación en IMDb
+    Rotten Tomatoes := Calificación Rotten Tomatoes
+    
+    Nos interesa obtener una sola calificación por lo que sacaremos un calificación promedio de ambas
+-->
+
+
+```{r}
+for (i in 1:length(datos$ID)) {
+  # Nos ineteresa obtener los primeros 3 caracteres
+  datos$IMDb[i] <- substr(x = datos$IMDb[i], start = 1, stop = 3)
+  
+  # Nos interesan los primeros dos caracteres
+  # y necesitamos añadir un punto después del primer caracter
+  datos$`Rotten Tomatoes`[i] <- sub("(.{1})(.*)", "\\1.\\2", 
+                                 substr(x = datos$`Rotten Tomatoes`[i], 
                                     start = 1, stop = 2))
 }
-data$IMDb <- as.numeric(data$IMDb)
-data$Rotten.Tomatoes <- as.numeric(data$Rotten.Tomatoes)
-data <- add_column(data, 
-                   Score = rowMeans(data[,c("IMDb", "Rotten.Tomatoes")], na.rm=TRUE), 
-                   .after = "Rotten.Tomatoes")
+
+# transformamos nuestra columna IMDb de tipo character a numeric
+datos$IMDb <- as.numeric(datos$IMDb)
+
+# transformamos nuestra columna Rotten Tomatoes de tipo character a numeric
+datos$`Rotten Tomatoes` <- as.numeric(datos$`Rotten Tomatoes`)
+
+# Agregamos una nueva columna 
+datos <- add_column(datos, 
+                   Calificacion = rowMeans(datos[,c("IMDb", "Rotten Tomatoes")], na.rm=TRUE), 
+                   .after = "Rotten Tomatoes")
+
+# Las columnas IMDb y Rotten Tomatoes ya son inecesarias, por lo que las eliminaremos
+datos %>% select(-IMDb, -`Rotten Tomatoes`) -> datos
 ```
 
-```{r}
-# Como podemos observar, algunas variables ya no son importantes, por lo que las eliminaremos.
-dataN <- subset(x = data, select = -c(X, IMDb, Rotten.Tomatoes, Type))
-rm(data, var)
-```
+
 
 <!-- Netflix -->
 
@@ -79,11 +106,6 @@ dataN %>% filter((Netflix == 1) &
                   (Disney. == 0) & 
                   (Hulu == 0)) %>% 
   subset(select = -c(Netflix, Prime.Video, Disney., Hulu)) -> netflix
-```
-
-
-```{r}
-View(table(netflix$Directors))
 ```
 
 
