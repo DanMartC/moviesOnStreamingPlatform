@@ -32,6 +32,7 @@ library(xtable)
 ```{css, echo = F}
 h1 { color: #D35400; }
 h2 { color: #69b3a2; }
+dt { color: #496786; }
 ```
 
 <!-- Lectura de Datos -->
@@ -227,8 +228,7 @@ datos %>% filter((Netflix == 'Si') &
   subset(select = -c(Netflix, `Prime Video`, `Disney+`, Hulu)) -> netflix
 ```
 
-
-<!-- prime video -->
+<!-- Prime Video -->
 
 ```{r}
 datos %>% filter((Netflix == 'No') & 
@@ -238,7 +238,7 @@ datos %>% filter((Netflix == 'No') &
   subset(select = -c(Netflix, `Prime Video`, `Disney+`, Hulu)) -> p_video
 ```
 
-<!-- Disney -->
+<!-- Disney+ -->
 
 ```{r}
 datos %>% filter((Netflix == 'No') & 
@@ -257,7 +257,6 @@ datos %>% filter((Netflix == 'No') &
                   (Hulu == 'Si')) %>% 
   subset(select = -c(Netflix, `Prime Video`, `Disney+`, Hulu)) -> hulu
 ```
-
 
 
 ```{r}
@@ -287,7 +286,7 @@ kbl(plataformas, escape = F) %>%
 </div>
   
 <div class = "col-md-4">
-```{r,  out.width='110%'}
+```{r}
 pie3D(x = values, radius = 0.8,labels = company, explode = 0.1,
   col = c("#AEB6BF", "#F1C40F", "#45B39D", "#AF7AC5", "#CD6155"),labelpos = c(1.5, 4, 5.3, 5.75, 6.2))
 ```
@@ -470,7 +469,37 @@ netflix %>%
 
 ```
 
+# Conclusiones
 
+<dl>
+  <dt> # : Índice del registro</dt>
+  <dd>- Sólo es un contador, sería mejor tener un registro por fecha. Esta variable la eliminaremos del conjunto de datos porque no es muy necesaría.</dd>
+  
+  <dt>ID : ID único de la película.</dt>
+  <dd>- El ID es muy importante, con el podemos realizar algunos "cruces" de tablas, ésta columna seguirá en el conjunto de datos.</dd>
+  
+  <dt>Title : Título de la película</dt>
+  <dd>- La utilizaremos para mostrar los resultados en nuestras tablas.</dd>
+  
+  <dt>Year : Año en que se produjo la película.</dt>
+  <dd>- Ésta columna es importamte con ella podemos obtener información como: total de películas por año o más aún obtener la calificacíon promedio de las películas producidas por año</dd>
+  
+  <dt>IMDb : Calificación en IMDb</dt>
+  <dd>- Obtenemos una calificación, por otro lado, tenemos también la calificación de Rotten Tomatoes.  Obtendremos una sola calificación que será el promedio de las dos anteiores.</dd>
+  
+  <dt>Rotten Tomatoes : Calificación en Rotten Tomatoes</dt>
+  <dd>- El mismo caso que IMDb, después de haber obtenido una sola calificación (Score), las columnas IMDb y Rotten Tomatoes serán eliminadas del conjunto de datos.</dd>
+  
+  <dt>Netflix : Indica si la película se encuentra en Netflix (1) o no (0)</dt>
+  <dd>- Realizamos una modificación a esta columna cambiando los valor de 0 y 1 por "No" y "Si", después realizamos un filtro para sólo obtener contenido de ésta plataforma, y por último realizar algunas consultas por ejemplo: peliculas con mejor calificación.</dd>
+  
+  <dt>Type : Indica si es una película (0) o una serie de televisión (1)</dt>
+  <dd>- Al realizar la colsulta para obtener el total de películas, nos percatamos de que no existe ningúna serie de televisión. Por lo tanto en éste documento sólo nos referimos a las películas y eliminamos ésta columna.</dd>
+</dl>
+
+# Continuará...
+
+Éste análisis de datos continuará, falta obtener más información de las otras plataformas, por el momento sólo nos enfocamos en Netflix.
 
 
 
